@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coffee Shop Pro - Live</title> 
+    <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gun/sea.js"></script>
+    <style>
+        :root {
+            --primary-dark: #2d2d2d; --accent-gold: #c6a664; --bg-cream: #fdfaf5;
+            --danger-red: #ff5252; --success-green: #4caf50;
+            --auto-font: clamp(16px, 4.5vw, 20px);
+        }
+        /* AUTH SCREEN STYLES */
+        #auth-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            background: var(--bg-cream); z-index: 5000; display: flex; 
+            flex-direction: column; align-items: center; justify-content: center; padding: 20px;
+        }
+        .auth-card {
+            background: white; padding: 30px; border-radius: 20px; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1); width: 100%; max-width: 350px;
+        }
+        .auth-card h2 { text-align: center; margin-bottom: 20px; color: var(--primary-dark); }
+        .auth-card input { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 10px; }
+        .auth-btn { width: 100%; padding: 12px; background: var(--primary-dark); color: white; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; }
+        .auth-toggle { text-align: center; margin-top: 15px; font-size: 0.8em; color: #666; cursor: pointer; }
+
+        * { -webkit-user-select: text; user-select: text; -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
+        
+        body { font-family: 'Inter', 'Segoe UI', sans-serif; background: var(--bg-cream); margin: 0; padding: 12px; display: flex; justify-content: center; font-size: var(--auto-font); color: var(--primary-dark); }
+        .app-container { width: 100%; max-width: 500px; min-height: 100vh; background: white; padding: 20px; box-shadow: 0 20px 50px rgba(0,0,0,0.05); border-radius: 20px; display: none; }
+        
+        header { text-align: center; margin-bottom: 20px; cursor: pointer; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        header h1 { margin: 0; font-size: 1.6em; font-weight: 800; letter-spacing: -1px; }
+        header h1 span { color: var(--accent-gold); }
+
+        .nav-bar { 
+            display: flex; overflow-x: auto; gap: 10px; margin-bottom: 25px; padding: 5px 2px 12px 2px;
+            scrollbar-width: none; -ms-overflow-style: none;
+        }
+        .nav-bar::-webkit-scrollbar { display: none; }
+
+        body.admin-mode .nav-bar { display: none; }
+
+        .btn-tab { 
+            flex: 0 0 auto; padding: 10px 18px; border: none; border-radius: 12px; 
+            background: #f5f5f5; font-weight: 700; font-size: 0.75em; cursor: pointer; color: #666; 
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+        }
+        .btn-tab.active { 
+            background: var(--primary-dark); color: white; transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(0,0,0,0.15);
+        }
+
+        .view { display: none; } .view.active { display: block; animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+        #category-filter { display: none; gap: 5px; margin-bottom: 15px; }
+        .btn-filter { flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #eee; background: #fafafa; font-size: 0.75em; font-weight: 700; cursor: pointer; color: #666; }
+        .btn-filter.active { background: var(--accent-gold); color: white; }
+
+        .t-btn-ice.active { background: #00bcd4 !important; color: white !important; }
+        .t-btn-hot.active { background: #ff5722 !important; color: white !important; }
+        .t-btn-spec.active { background: #9c27b0 !important; color: white !important; }
+
+        .menu-item { display: flex; justify-content: space-between; align-items: center; padding: 15px 0; border-bottom: 1px solid #f9f9f9; }
+        input, select, textarea { width: 100%; padding: 14px; border: 2px solid #eee; border-radius: 12px; margin-bottom: 12px; font-size: 1em; outline: none; transition: border-color 0.2s; }
+        input:focus, select:focus { border-color: var(--accent-gold); }
+        
+        .ing-row { 
+            display: grid; grid-template-columns: 1fr 90px 45px; gap: 8px; margin-bottom: 12px; 
+            background: #fff; padding: 8px; border-radius: 14px; border: 1px solid #f0f0f0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+        }
+        .ing-row select { margin: 0; background: #fafafa; border: 1px solid #eee; font-size: 0.85em; font-weight: 600; }
+        .ing-row input { margin: 0; background: #fafafa; border: 1px solid #eee; text-align: center; font-size: 0.85em; }
+
+        .btn-calc { width: 100%; background: var(--primary-dark); color: white; padding: 16px; border: none; border-radius: 12px; cursor: pointer; font-weight: 700; }
+        .btn-exit { width: 100%; background: #f0f0f0; color: #333; padding: 14px; border: none; border-radius: 12px; cursor: pointer; font-weight: 700; margin-top: 10px; }
+
+        .profit-badge { padding: 10px; border-radius: 12px; font-weight: 700; font-size: 0.85em; text-align: right; line-height: 1.2; }
+        .status-profit { background: #f0fdf4; color: var(--success-green); }
+        .status-loss { background: #fef2f2; color: var(--danger-red); }
+
+        #toast-container { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; width: 80%; pointer-events: none; }
+        .toast { background: var(--primary-dark); color: white; padding: 12px; border-radius: 12px; margin-bottom: 10px; text-align: center; font-size: 0.85em; opacity: 0; transition: 0.4s; }
+        .toast.show { opacity: 1; }
+
+        .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+        .stat-box { background: var(--primary-dark); color: white; padding: 15px; border-radius: 15px; text-align: center; }
+        .stat-box small { display: block; font-size: 0.65em; opacity: 0.7; margin-bottom: 5px; }
+        .stat-box b { font-size: 1em; color: white; }
+
+        .sell-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+        .sell-card { 
+            background: #f9f9f9; padding: 20px 10px; border-radius: 15px; text-align: center; 
+            cursor: pointer; border: 2px solid transparent; transition: 0.2s;
+            display: flex; align-items: center; justify-content: center; min-height: 80px;
+        }
+        .sell-card:active { transform: scale(0.95); background: #eee; }
+        .sell-card b { font-size: 0.9em; line-height: 1.2; word-break: break-word; }
+        
+        .history-item { display: flex; justify-content: space-between; align-items: center; background: #fff; padding: 10px; border-radius: 10px; border: 1px solid #f0f0f0; margin-bottom: 8px; font-size: 0.85em; }
+        .btn-del-small { color: var(--danger-red); border: none; background: none; font-weight: 800; cursor: pointer; padding: 5px 10px; }
+
+        .stats-table-wrapper { margin-top: 20px; overflow-x: auto; border: 1px solid #eee; border-radius: 12px; }
+        .stats-table { width: 100%; border-collapse: collapse; font-size: 0.65em; text-align: left; background: white; }
+        .stats-table th { background: #f8f8f8; padding: 10px; border-bottom: 2px solid #eee; }
+        .stats-table td { padding: 10px; border-bottom: 1px solid #f0f0f0; }
+        .stats-table tr.total-row { font-weight: bold; background: #fdfaf5; border-top: 2px solid #eee; }
+
+        .stock-badge { padding: 4px 8px; border-radius: 6px; font-size: 0.7em; font-weight: 800; }
+        .badge-low { background: #fef2f2; color: #ef4444; }
+        .badge-ok { background: #f0fdf4; color: #22c55e; }
+
+        .admin-nav { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 20px; }
+        .admin-nav .btn-tab { padding: 8px 4px; font-size: 0.6em; text-align: center; }
+
+        .warning-text { color: var(--danger-red); font-size: 0.7em; font-weight: 700; margin-top: -10px; margin-bottom: 10px; display: none; }
+        #auth-status { font-size: 0.7em; color: #999; margin-top: 10px; }
+        
+        /* New Connection Indicator */
+        #conn-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #ccc; margin-right: 5px; }
+    </style>
+</head>
+<body>
+
+<div id="auth-screen">
+    <div class="auth-card">
+        <h2 id="auth-title">Coffee Shop Login</h2>
+        <input type="text" id="auth-alias" placeholder="Username">
+        <input type="password" id="auth-password" placeholder="Password">
+        <button class="auth-btn" id="auth-main-btn" onclick="handleAuth()">Login</button>
+        <p class="auth-toggle" onclick="toggleAuthMode()" id="auth-toggle-text">Don't have an account? Sign Up</p>
+        <div id="auth-status"><span id="conn-dot"></span>System Ready</div>
+    </div>
+</div>
+
+<div id="confirm-overlay" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); display:none; align-items:center; justify-content:center; z-index:3000;">
+    <div style="background:white; padding:25px; border-radius:20px; width:85%; max-width:320px; text-align:center;">
+        <h3 style="margin:0;">Are you sure?</h3>
+        <p id="confirm-msg" style="color:#666; margin-top:10px;"></p>
+        <div style="display:flex; gap:10px; margin-top:20px;">
+            <button id="confirm-cancel-btn" onclick="closeConfirm()" style="flex:1; padding:12px; border-radius:10px; border:none; background:#eee;">Cancel</button>
+            <button id="confirm-ok" style="flex:1; padding:12px; border-radius:10px; border:none; background:var(--danger-red); color:white;">Confirm</button>
+        </div>
+    </div>
+</div>
+
+<div id="qty-overlay" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); display:none; align-items:center; justify-content:center; z-index:3000;">
+    <div style="background:white; padding:25px; border-radius:20px; width:85%; max-width:320px; text-align:center;">
+        <h3 id="qty-title" style="margin:0 0 15px 0;">Select Quantity</h3>
+        <input type="number" id="sell-qty-val" placeholder="Qty" min="1" step="1" inputmode="numeric" style="text-align:center; font-size:1.5em; padding:10px;">
+        <div style="display:flex; gap:10px;">
+            <button onclick="closeQty()" style="flex:1; padding:12px; border-radius:10px; border:none; background:#eee;">Cancel</button>
+            <button id="qty-confirm-btn" style="flex:1; padding:12px; border-radius:10px; border:none; background:var(--primary-dark); color:white; font-weight:700;">Add Sale</button>
+        </div>
+    </div>
+</div>
+
+<div id="stock-qty-overlay" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); display:none; align-items:center; justify-content:center; z-index:3000;">
+    <div style="background:white; padding:25px; border-radius:20px; width:85%; max-width:320px; text-align:center;">
+        <h3 id="stock-title" style="margin:0 0 10px 0;">Item Name</h3>
+        <div style="display:flex; gap:5px; margin-bottom:15px;">
+            <button class="btn-tab" style="flex:1; font-size: 0.6em;" id="smode-in" onclick="setStockMode('in')">Stock IN</button>
+            <button class="btn-tab" style="flex:1; font-size: 0.6em;" id="smode-out" onclick="setStockMode('out')">Stock OUT</button>
+            <button class="btn-tab" style="flex:1; font-size: 0.6em;" id="smode-hand" onclick="setStockMode('hand')">Hand Count</button>
+        </div>
+        <p id="stock-helper-text" style="font-size: 0.65em; color: #666; margin-bottom: 10px;">Enter amount arriving today</p>
+        <input type="number" id="stock-qty-val" placeholder="Pcs" min="0" step="1" inputmode="numeric" style="text-align:center; font-size:1.5em; padding:10px;">
+        <div style="display:flex; gap:10px;">
+            <button onclick="closeStockQty()" style="flex:1; padding:12px; border-radius:10px; border:none; background:#eee;">Cancel</button>
+            <button onclick="processStock()" id="stock-confirm-btn" style="flex:1; padding:12px; border-radius:10px; border:none; background:var(--primary-dark); color:white; font-weight:700;">Update</button>
+        </div>
+    </div>
+</div>
+
+<div id="toast-container"></div>
+
+<div class="app-container" id="main-app">
+    <header onclick="handleHeaderClick()"><h1>Coffee <span>Shop</span></h1></header> <div class="nav-bar">
+        <button class="btn-tab active" id="tab-sell" onclick="showView('sell')">Sell</button>
+        <button class="btn-tab" id="tab-expense" onclick="showView('expense')">Exp</button>
+        <button class="btn-tab" id="tab-stock-mgr" onclick="showView('stock-mgr')">Stock</button>
+        <button class="btn-tab" id="tab-inventory" onclick="showView('inventory')">Inventory</button>
+        <button class="btn-tab" id="tab-capital" onclick="showView('capital')">Cost</button>
+        <button class="btn-tab" id="tab-gprofit" onclick="showView('gprofit')">Margin</button>
+        <button class="btn-tab" id="tab-stats" onclick="showView('stats')">Stats</button>
+    </div>
+
+    <div id="view-sell" class="view active">
+        <div class="stat-grid">
+            <div class="stat-box"><small>Revenue</small><b id="sell-rev">0</b> ks</div>
+            <div class="stat-box"><small>Net Profit</small><b id="sell-prof">0</b> ks</div>
+        </div>
+        <div style="margin-bottom: 15px;">
+            <input type="text" id="sellSearch" class="search-input" placeholder="Search recipe to sell..." oninput="renderSell()">
+        </div>
+        <div id="sell-grid-container" class="sell-grid"></div>
+        <h4 style="margin: 20px 0 10px 0; border-bottom: 1px solid #eee; padding-bottom: 5px;">Today's Sales</h4>
+        <div id="sell-history"></div>
+        <button onclick="coolConfirm('Archive today\'s data?', archiveDailyData)" style="width:100%; color:red; border:none; background:none; margin-top:15px; font-weight:700;">Close Day & Archive</button>
+    </div>
+
+    <div id="view-expense" class="view">
+        <div class="stat-grid" style="grid-template-columns: 1fr;">
+            <div class="stat-box" style="background: var(--primary-dark);"><small>Daily Total Expenses</small><b id="exp-total-disp">0</b> ks</div>
+        </div>
+        <div style="background:#f9f9f9; padding:15px; border-radius:15px; margin-bottom:20px;">
+            <input type="text" id="expName" placeholder="Description">
+            <input type="number" id="expVal" placeholder="Amount">
+            <button class="btn-calc" id="btn-exp-save" onclick="addExp()">Add Expense</button>
+            <button class="btn-tab" id="btn-exp-cancel" style="width:100%; margin-top:8px; display:none;" onclick="resetExpEditor()">Cancel</button>
+        </div>
+        <div id="exp-list"></div>
+        <button onclick="coolConfirm('Archive daily data?', archiveDailyData)" style="width:100%; color:red; border:none; background:none; margin-top:15px; font-weight:700;">Daily Reset & Archive</button>
+    </div>
+
+    <div id="view-stock-mgr" class="view">
+        <div class="stat-grid" style="grid-template-columns: 1fr 1fr; margin-bottom:15px;">
+            <div class="stat-box"><small>Stock IN (ks)</small><b id="stock-day-in">0</b></div>
+            <div class="stat-box"><small>Stock OUT (ks)</small><b id="stock-day-out">0</b></div>
+        </div>
+        <div id="stock-grid-items" class="sell-grid"></div>
+        <h4 style="margin: 20px 0 10px 0; font-size: 0.8em; border-bottom: 1px solid #eee; padding-bottom: 5px;">TODAY'S STOCK HISTORY</h4>
+        <div id="stock-log-list"></div>
+        <button onclick="coolConfirm('Archive daily stock movement?', archiveStockDaily)" style="width:100%; color:red; border:none; background:none; margin-top:15px; font-weight:700;">Reset & Archive Daily Stock</button>
+    </div>
+
+    <div id="view-inventory" class="view">
+        <div class="stat-grid" style="grid-template-columns: 1fr 1fr; margin-bottom:10px;">
+            <div class="stat-box" style="background: var(--primary-dark);"><small>Daily Cost</small><b id="inv-cost-day">0</b> ks</div>
+            <div class="stat-box" style="background: var(--primary-dark);"><small>Monthly Cost</small><b id="inv-cost-mo">0</b> ks</div>
+        </div>
+        
+        <div style="display:flex; gap:5px; margin-bottom:15px;">
+            <button class="btn-tab" style="flex:1; background:#fff1f1; color:red; font-size:0.6em;" onclick="resetCost('day')">Reset Day</button>
+            <button class="btn-tab" style="flex:1; background:#fff1f1; color:red; font-size:0.6em;" onclick="resetCost('mo')">Reset Month</button>
+            <button class="btn-tab" style="flex:1; background:#fff1f1; color:red; font-size:0.6em;" onclick="resetCost('yr')">Reset Year</button>
+        </div>
+
+        <input type="text" id="invSearch" placeholder="Search inventory items..." oninput="renderInventory()" style="margin-bottom:15px;">
+        <div id="inventory-list"></div>
+
+        <hr style="border:0; border-top:1px solid #eee; margin:25px 0;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <h3 style="font-size:0.9em; margin:0;">Stock History Tracking</h3>
+            <button class="btn-tab" style="padding:6px 12px; color:var(--danger-red); font-size:0.65em; background:none; border:1px solid #fee2e2;" onclick="clearStockLogs()">Clear All Logs</button>
+        </div>
+        
+        <div style="display:flex; gap:8px; margin-bottom:10px;">
+            <input type="date" id="inv-date-pick" style="flex:2; margin:0; padding:8px; font-size:0.7em;" onchange="renderInventoryHistory('date')">
+            <button class="btn-tab active" id="inv-hist-day" style="flex:1; padding:8px 2px;" onclick="renderInventoryHistory('day')">Day</button>
+            <button class="btn-tab" id="inv-hist-mo" style="flex:1; padding:8px 2px;" onclick="renderInventoryHistory('mo')">Month</button>
+            <button class="btn-tab" id="inv-hist-yr" style="flex:1; padding:8px 2px;" onclick="renderInventoryHistory('yr')">Year</button>
+        </div>
+        <div id="inventory-history-log"></div>
+    </div>
+
+    <div id="view-capital" class="view">
+        <input type="text" id="capSearch" class="search-input" placeholder="Search cost..." oninput="renderCapital()">
+        <div id="cap-filter-box"></div>
+        <div id="capital-list"></div>
+    </div>
+
+    <div id="view-gprofit" class="view">
+        <input type="text" id="gprofSearch" class="search-input" placeholder="Search margins..." oninput="renderGross()">
+        <div id="gprof-filter-box"></div>
+        <div id="gprofit-list"></div>
+    </div>
+
+    <div id="view-stats" class="view">
+        <div style="display:flex; overflow-x: auto; gap:8px; margin-bottom:15px; padding-bottom: 5px;">
+            <button class="btn-tab active" id="stats-day-btn" style="flex:1" onclick="renderStats('day')">Day</button>
+            <button class="btn-tab" id="stats-mo-btn" style="flex:1" onclick="renderStats('mo')">Month</button>
+            <button class="btn-tab" id="stats-yr-btn" style="flex:1" onclick="renderStats('yr')">Year</button>
+        </div>
+        <div id="stats-summary"></div>
+        <h4 style="margin: 25px 0 10px 0; font-size: 0.8em; color: var(--accent-gold);">USAGE SUMMARY</h4>
+        <div id="stats-usage-list" class="stats-table-wrapper"></div>
+        <button onclick="coolConfirm('This will delete ALL archived history permanently. Proceed?', resetAllStats)" style="width:100%; color:red; border:2px solid #fee2e2; border-radius:12px; background:white; margin-top:30px; padding:15px; font-weight:700;">Reset All Stats Data</button>
+    </div>
+
+    <div id="view-admin" class="view admin-mode-view">
+        <div class="admin-nav">
+            <button class="btn-tab active" onclick="showView('admin')">Setup</button>
+            <button class="btn-tab" onclick="showView('home')">Items</button>
+            <button class="btn-tab" onclick="showView('recipe')">Recipes</button>
+            <button class="btn-tab active" onclick="showView('profit')">Target</button>
+        </div>
+        <div style="padding:18px; border:2px solid #f0f0f0; border-radius:15px; margin-bottom:10px;">
+            <h4 id="admin-editor-title">Register Stock Item</h4>
+            <input type="text" id="admName" placeholder="Item name">
+            <input type="number" id="admGram" placeholder="Weight (g)">
+            <input type="number" id="admPrice" placeholder="Price (ks)">
+            <button class="btn-calc" id="btn-adm-save" onclick="addAdminItem()">Add to Stock</button>
+            <button class="btn-tab" id="btn-adm-cancel" style="width:100%; margin-top:10px; display:none;" onclick="resetAdminEditor()">Cancel</button>
+        </div>
+
+        <div style="background:#f9f9f9; padding:15px; border-radius:15px; margin-top:10px;">
+            <h4 style="margin:0 0 10px 0; font-size:0.8em;">Packaging Prices (ks)</h4>
+            <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:8px;">
+                <div><small>Ice</small><input type="number" id="packIce" placeholder="0" oninput="settings.packIce=this.value;save();"></div>
+                <div><small>Hot</small><input type="number" id="packHot" placeholder="0" oninput="settings.packHot=this.value;save();"></div>
+                <div><small>Spec</small><input type="number" id="packSpecial" placeholder="0" oninput="settings.packSpecial=this.value;save();"></div>
+            </div>
+        </div>
+
+        <button class="btn-exit" onclick="showView('sell')">Exit Admin</button>
+        <button onclick="logout()" style="width:100%; padding:10px; border:none; background:#ff5252; color:white; border-radius:10px; margin-top:10px; font-weight:700;">Logout Account</button>
+    </div>
+
+    <div id="view-home" class="view admin-mode-view">
+        <div class="admin-nav">
+            <button class="btn-tab" onclick="showView('admin')">Setup</button>
+            <button class="btn-tab active" onclick="showView('home')">Items</button>
+            <button class="btn-tab" onclick="showView('recipe')">Recipes</button>
+            <button class="btn-tab active" onclick="showView('profit')">Target</button>
+        </div>
+        <input type="text" id="homeSearch" class="search-input" placeholder="Search items..." oninput="renderAdmin()">
+        <div id="admin-list"></div>
+    </div>
+
+    <div id="view-recipe" class="view admin-mode-view">
+        <div class="admin-nav">
+            <button class="btn-tab" onclick="showView('admin')">Setup</button>
+            <button class="btn-tab" onclick="showView('home')">Items</button>
+            <button class="btn-tab active" onclick="showView('recipe')">Recipes</button>
+            <button class="btn-tab active" onclick="showView('profit')">Target</button>
+        </div>
+        <div id="recipe-editor" style="background:#f9f9f9; padding:18px; border-radius:15px; margin-bottom:20px;">
+            <input type="text" id="recipeName" placeholder="Drink name">
+            <div id="warn-type" class="warning-text">! Please select drink type</div>
+            <div style="display:flex; gap:6px; margin-bottom:15px;">
+                <button class="btn-tab t-btn t-btn-ice" style="flex:1;" onclick="setDrinkType('Ice')">Ice</button>
+                <button class="btn-tab t-btn t-btn-hot" style="flex:1;" onclick="setDrinkType('Hot')">Hot</button>
+                <button class="btn-tab t-btn t-btn-spec" style="flex:1;" onclick="setDrinkType('Special')">Spec</button>
+            </div>
+            <div id="ingredient-area"></div>
+            <div id="warn-ings" class="warning-text">! Add at least one ingredient</div>
+            <button class="btn-tab" style="width:100%; border:1px dashed #ccc; background:none;" onclick="addIngredientRow()">+ Ingredient</button>
+            <button class="btn-calc" id="btn-recipe-save" onclick="saveRecipe()" style="margin-top:10px;">Save Recipe</button>
+            <button class="btn-tab" id="btn-recipe-cancel" style="width:100%; margin-top:8px; display:none;" onclick="resetEditor()">Cancel</button>
+        </div>
+        <div id="recipe-filter-box"></div>
+        <div id="recipe-list"></div>
+    </div>
+
+    <div id="view-profit" class="view admin-mode-view">
+        <div class="admin-nav">
+            <button class="btn-tab" onclick="showView('admin')">Setup</button>
+            <button class="btn-tab" onclick="showView('home')">Items</button>
+            <button class="btn-tab" onclick="showView('recipe')">Recipes</button>
+            <button class="btn-tab active" onclick="showView('profit')">Target</button>
+        </div>
+        <div style="background:#eee; padding:15px; border-radius:12px; margin-bottom:15px; display:flex; align-items:center; gap:10px;">
+            <span style="font-weight:700; font-size:0.8em;">Target %</span>
+            <input type="number" id="profitTarget" value="20" style="margin:0; border:none;" oninput="settings.profit=this.value; save(); renderProfit();">
+        </div>
+        <div id="prof-filter-box"></div>
+        <div id="profit-list"></div>
+    </div>
+
+    <div id="view-data" class="view admin-mode-view">
+        <h3 style="text-align:center; margin-top:0;">Data Exchange</h3>
+        <p style="font-size:0.75em; color:#666; text-align:center;">Generate a string to backup or move your data.</p>
+        
+        <div style="background:#f9f9f9; padding:15px; border-radius:15px; margin-bottom:20px; border:1px solid #eee;">
+            <button class="btn-calc" style="background:var(--accent-gold);" onclick="generateExport()">Generate Export String</button>
+            <div id="export-container" style="display:none; margin-top:15px;">
+                <textarea id="exportBox" readonly style="height:100px; font-size:0.6em; font-family:monospace; margin-bottom:10px; background:#fff;"></textarea>
+                <button class="btn-tab" style="width:100%; background:var(--primary-dark); color:white;" onclick="copyExportString()">Copy String to Clipboard</button>
+            </div>
+        </div>
+        
+        <div style="border-top:1px solid #eee; padding-top:20px;">
+            <textarea id="importBox" placeholder="Paste data here to import..." style="height:120px; font-size:0.65em; font-family:monospace;"></textarea>
+            <button class="btn-calc" style="background:var(--primary-dark);" onclick="importData()">Import Data</button>
+        </div>
+        
+        <button class="btn-exit" onclick="showView('admin')">Back to Admin</button>
+    </div>
+</div>
+
+<div id="category-filter" style="display: none; gap: 5px; margin-bottom: 15px;">
+    <button class="btn-filter active" onclick="setFilter('All')">All</button>
+    <button class="btn-filter" onclick="setFilter('Ice')">Ice</button>
+    <button class="btn-filter" onclick="setFilter('Hot')">Hot</button>
+    <button class="btn-filter" onclick="setFilter('Special')">Spec</button>
+</div>
+
+<script>
+    /* P2P AUTH LOGIC - RELIABLE WEB CONFIG */
+    const gun = Gun({
+        peers: ['https://gun-manhattan.herokuapp.com/gun'],
+        localStorage: true
+    });
+    const user = gun.user().recall({storage: true});
+    let isLoginMode = true;
+
+    // Check Connection status for web visibility
+    setInterval(() => {
+        const dot = document.getElementById('conn-dot');
+        if(gun._.opt.peers['https://gun-manhattan.herokuapp.com/gun'].wire?.readyState === 1) {
+            dot.style.background = 'var(--success-green)';
+        } else {
+            dot.style.background = 'var(--danger-red)';
+        }
+    }, 3000);
+
+    function toggleAuthMode() {
+        isLoginMode = !isLoginMode;
+        document.getElementById('auth-title').innerText = isLoginMode ? "Coffee Shop Login" : "Coffee Shop Sign Up";
+        document.getElementById('auth-main-btn').innerText = isLoginMode ? "Login" : "Sign Up";
+        document.getElementById('auth-toggle-text').innerText = isLoginMode ? "Don't have an account? Sign Up" : "Already have an account? Login";
+    }
+
+    function handleAuth() {
+        const alias = document.getElementById('auth-alias').value;
+        const pass = document.getElementById('auth-password').value;
+        const status = document.getElementById('auth-status');
+
+        if(!alias || !pass) { showToast("Enter details!"); return; }
+
+        if (isLoginMode) {
+            status.innerHTML = "Authenticating...";
+            user.auth(alias, pass, (ack) => {
+                if (ack.err) {
+                    showToast(ack.err);
+                    status.innerHTML = "Error logging in.";
+                }
+            });
+        } else {
+            status.innerHTML = "Creating account...";
+            user.create(alias, pass, (ack) => {
+                if (ack.err) {
+                    showToast(ack.err);
+                    status.innerHTML = "Error creating account.";
+                } else {
+                    showToast("Account created! Logging in...");
+                    user.auth(alias, pass);
+                }
+            });
+        }
+    }
+
+    function logout() {
+        user.leave();
+        localStorage.clear(); // Clear local cache on logout
+        location.reload();
+    }
+
+    gun.on('auth', (ack) => {
+        document.getElementById('auth-screen').style.display = 'none';
+        document.getElementById('main-app').style.display = 'block';
+        showToast("Welcome " + ack.alias);
+        showView('sell');
+    });
+
+    /* CORE LOGIC */
+    const handler = { set(target, property, value) { target[property] = value; save(); return true; } };
+    let menuItems = new Proxy(JSON.parse(localStorage.getItem('cc_menu')) || [], handler);
+    let recipes = JSON.parse(localStorage.getItem('cc_recipes')) || [];
+    let settings = JSON.parse(localStorage.getItem('cc_settings')) || { profit: "20", packIce: 0, packHot: 0, packSpecial: 0 };
+    let salesPrices = JSON.parse(localStorage.getItem('cc_sales')) || {};
+    let dailySales = JSON.parse(localStorage.getItem('cc_daily')) || [];
+    let dailyExpenses = JSON.parse(localStorage.getItem('cc_exp')) || [];
+    let archive = JSON.parse(localStorage.getItem('cc_arc')) || { s: [], e: [], st: [] };
+    let inventory = JSON.parse(localStorage.getItem('cc_inv')) || {}; 
+    let stockLog = JSON.parse(localStorage.getItem('cc_log')) || [];
+    let costTracking = JSON.parse(localStorage.getItem('cc_cost_track')) || { day: 0, mo: 0, yr: 0 };
+    let dailyStockLog = JSON.parse(localStorage.getItem('cc_stock_daily')) || [];
+    
+    let currentType = null, editRecipeIndex = -1, activeFilter = "All", editAdminIndex = -1, editExpIndex = -1, stockMode = 'in', currentStockId = null, editStockIdx = -1;
+
+    function fnum(n) { return Math.round(n || 0).toLocaleString(); }
+    
+    function save() { 
+        localStorage.setItem('cc_menu', JSON.stringify(menuItems)); 
+        localStorage.setItem('cc_recipes', JSON.stringify(recipes)); 
+        localStorage.setItem('cc_settings', JSON.stringify(settings)); 
+        localStorage.setItem('cc_sales', JSON.stringify(salesPrices)); 
+        localStorage.setItem('cc_daily', JSON.stringify(dailySales)); 
+        localStorage.setItem('cc_exp', JSON.stringify(dailyExpenses));
+        localStorage.setItem('cc_arc', JSON.stringify(archive)); 
+        localStorage.setItem('cc_inv', JSON.stringify(inventory));
+        localStorage.setItem('cc_log', JSON.stringify(stockLog)); 
+        localStorage.setItem('cc_cost_track', JSON.stringify(costTracking));
+        localStorage.setItem('cc_stock_daily', JSON.stringify(dailyStockLog));
+    }
+
+    function handleHeaderClick() {
+        if (document.body.classList.contains('admin-mode')) { showView('data'); } else { showView('admin'); }
+    }
+
+    window.onpopstate = function() {
+        const overlays = ['confirm-overlay', 'qty-overlay', 'stock-qty-overlay'];
+        for (let id of overlays) {
+            const el = document.getElementById(id);
+            if (el && el.style.display === 'flex') {
+                el.style.display = 'none';
+                return;
+            }
+        }
+    };
+
+    function showView(name) {
+        document.body.classList.toggle('admin-mode', ['admin', 'home', 'recipe', 'profit', 'data'].includes(name));
+        const filter = document.getElementById('category-filter');
+        const containers = { recipe: 'recipe-filter-box', profit: 'prof-filter-box', capital: 'cap-filter-box', gprofit: 'gprof-filter-box' };
+        
+        if(containers[name]) { 
+            document.getElementById(containers[name]).appendChild(filter); 
+            filter.style.display = 'flex'; 
+        } else { 
+            filter.style.display = 'none'; 
+        }
+
+        document.querySelectorAll('.view, .btn-tab').forEach(el => el.classList.remove('active')); 
+        document.getElementById('view-' + name).classList.add('active'); 
+        document.getElementById('tab-' + name)?.classList.add('active'); 
+        
+        if(name === 'admin') {
+            document.getElementById('packIce').value = settings.packIce || 0;
+            document.getElementById('packHot').value = settings.packHot || 0;
+            document.getElementById('packSpecial').value = settings.packSpecial || 0;
+        }
+        if(name === 'home' || name === 'admin') renderAdmin(); 
+        if(name === 'inventory') { renderInventory(); renderInventoryHistory('day'); }
+        if(name === 'recipe') renderRecipeList(); 
+        if(name === 'capital') renderCapital(); 
+        if(name === 'profit') renderProfit(); 
+        if(name === 'gprofit') renderGross(); 
+        if(name === 'sell') renderSell(); 
+        if(name === 'stock-mgr') renderStockMgr(); 
+        if(name === 'expense') renderExp(); 
+        if(name === 'stats') renderStats('day');
+    }
+
+    function renderStockMgr() {
+        document.getElementById('stock-grid-items').innerHTML = menuItems.map(m => `<div class="sell-card" onclick="openStockQty('${m.id}')"><b>${m.name}</b></div>`).join('');
+        let dInVal = 0, dOutVal = 0;
+        dailyStockLog.forEach(l => { if(l.val > 0) dInVal += l.val; else dOutVal += Math.abs(l.val); });
+        document.getElementById('stock-day-in').innerText = fnum(dInVal);
+        document.getElementById('stock-day-out').innerText = fnum(dOutVal);
+
+        let grandTotal = 0;
+        const logHtml = dailyStockLog.map((l, idx) => {
+            grandTotal += l.val;
+            return `<div class="history-item" style="font-size:0.7em; background:#fdfaf5; border:1px dashed #c6a664; display:block; padding:12px;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:5px;"><b>${l.item}</b><div><button style="border:none; background:none; color:var(--accent-gold); font-weight:700; padding: 0 8px;" onclick="editStockLog(${idx})">Edit</button><span style="color:${l.val > 0 ? 'var(--success-green)' : 'var(--danger-red)'}; font-weight:700;">${l.val > 0 ? 'IN' : 'OUT'}</span></div></div>
+                <div style="display:flex; justify-content:space-between; opacity:0.8;"><span>Price: ${fnum(l.adminPrice)} ks</span><span>Qty: ${fnum(Math.abs(l.qty))} pcs</span></div>
+                <div style="text-align:right; border-top:1px solid #eee; margin-top:5px; padding-top:5px; font-weight:800;">Total: ${fnum(Math.abs(l.val))} ks</div>
+            </div>`;
+        }).reverse().join('');
+        document.getElementById('stock-log-list').innerHTML = logHtml + `<div style="margin-top:15px; padding:15px; background:var(--primary-dark); color:white; border-radius:12px; display:flex; justify-content:space-between; align-items:center;"><span style="font-size:0.75em; font-weight:600;">ALL TOTAL VALUE</span><b style="font-size:1.1em;">${fnum(grandTotal)} ks</b></div>`;
+    }
+
+    function editStockLog(idx) {
+        editStockIdx = idx; const entry = dailyStockLog[idx];
+        const item = menuItems.find(m => m.name === entry.item);
+        if(!item) return;
+        currentStockId = item.id;
+        document.getElementById('stock-title').innerText = "Edit: " + item.name;
+        document.getElementById('stock-qty-overlay').style.display = 'flex';
+        document.getElementById('stock-qty-val').value = Math.abs(entry.qty);
+        setStockMode(entry.qty >= 0 ? 'in' : 'out');
+    }
+
+    function openStockQty(id) {
+        editStockIdx = -1; currentStockId = id; const item = menuItems.find(m => m.id == id);
+        document.getElementById('stock-title').innerText = item.name;
+        document.getElementById('stock-qty-overlay').style.display = 'flex';
+        const input = document.getElementById('stock-qty-val');
+        input.value = ''; setTimeout(() => input.focus(), 100); setStockMode('in');
+    }
+
+    function closeStockQty() { document.getElementById('stock-qty-overlay').style.display = 'none'; }
+    
+    function setStockMode(m) {
+        stockMode = m;
+        document.getElementById('smode-in').classList.toggle('active', m === 'in');
+        document.getElementById('smode-out').classList.toggle('active', m === 'out');
+        document.getElementById('smode-hand').classList.toggle('active', m === 'hand');
+        document.getElementById('stock-qty-val').focus(); 
+    }
+
+    function processStock() {
+        const inputVal = parseFloat(document.getElementById('stock-qty-val').value);
+        if(!currentStockId || isNaN(inputVal)) return;
+        const item = menuItems.find(m => m.id == currentStockId);
+        const adminPrice = item.price; let currentInv = inventory[currentStockId] || 0;
+
+        if(editStockIdx > -1) {
+            const old = dailyStockLog[editStockIdx];
+            inventory[currentStockId] -= old.qty;
+            if(old.val > 0) { costTracking.day -= old.val; costTracking.mo -= old.val; costTracking.yr -= old.val; }
+            currentInv = inventory[currentStockId];
+        }
+
+        let change = (stockMode === 'hand') ? (inputVal - currentInv) : (stockMode === 'in' ? inputVal : -inputVal);
+        const valueChange = adminPrice * change;
+        inventory[currentStockId] = currentInv + change;
+        if(change > 0) { costTracking.day += valueChange; costTracking.mo += valueChange; costTracking.yr += valueChange; }
+
+        const logEntry = { item: item.name, qty: change, adminPrice: adminPrice, val: valueChange, date: new Date().toISOString() };
+        if(editStockIdx > -1) dailyStockLog[editStockIdx] = logEntry; else dailyStockLog.push(logEntry);
+
+        save(); closeStockQty(); renderStockMgr(); showToast("Stock Updated");
+    }
+
+    function archiveStockDaily() {
+        const d = new Date().toISOString();
+        dailyStockLog.forEach(l => stockLog.push({...l, date: d}));
+        dailyStockLog = []; save(); renderStockMgr(); showToast("Stock Reset & Archived");
+    }
+
+    function renderInventory() {
+        document.getElementById('inv-cost-day').innerText = fnum(costTracking.day);
+        document.getElementById('inv-cost-mo').innerText = fnum(costTracking.mo);
+        const q = (document.getElementById('invSearch')?.value || "").toLowerCase();
+        document.getElementById('inventory-list').innerHTML = menuItems.filter(m => (inventory[m.id] || 0) > 0 && m.name.toLowerCase().includes(q)).map(m => {
+            const qty = inventory[m.id] || 0;
+            return `<div class="menu-item"><div style="flex:1;"><b>${m.name}</b><br><span class="stock-badge ${qty < 5 ? 'badge-low' : 'badge-ok'}">${fnum(qty)} pcs</span></div><button class="btn-tab" style="background:#fee2e2; color:#ef4444; font-size:0.65em; padding:6px 10px;" onclick="resetStockItem('${m.id}')">Reset</button></div>`;
+        }).join('');
+    }
+
+    function resetStockItem(id) {
+        coolConfirm(`Reset stock for this item?`, () => { inventory[id] = 0; save(); renderInventory(); });
+    }
+
+    function clearStockLogs() {
+        coolConfirm('PERMANENTLY DELETE ALL history logs?', () => { stockLog = []; dailyStockLog = []; save(); renderInventoryHistory('day'); });
+    }
+
+    function renderInventoryHistory(mode) {
+        document.querySelectorAll('[id^="inv-hist-"]').forEach(el => el.classList.remove('active'));
+        if(document.getElementById('inv-hist-'+mode)) document.getElementById('inv-hist-'+mode).classList.add('active');
+        let now = new Date(), logs = [...dailyStockLog, ...stockLog];
+        let d = now.getDate(), m = now.getMonth(), y = now.getFullYear();
+        
+        let filtered = logs.filter(l => {
+            let dt = new Date(l.date);
+            if(mode==='day') return dt.getDate()===d && dt.getMonth()===m && dt.getFullYear()===y;
+            if(mode==='mo') return dt.getMonth()===m && dt.getFullYear()===y;
+            return dt.getFullYear()===y;
+        }).reverse();
+
+        document.getElementById('inventory-history-log').innerHTML = filtered.length > 0 ? filtered.map(l => `
+            <div class="history-item" style="font-size:0.7em; margin-bottom:5px; border-left:3px solid ${l.val > 0 ? 'var(--success-green)' : 'var(--danger-red)'};">
+                <div><b>${l.item}</b><br><small>${new Date(l.date).toLocaleDateString()}</small></div>
+                <div style="text-align:right;"><b style="color:${l.val > 0 ? 'var(--success-green)' : 'var(--danger-red)'};">${l.val > 0 ? '+' : ''}${fnum(l.qty)} pcs</b><br><small>${fnum(Math.abs(l.val))} ks</small></div>
+            </div>`).join('') : `<div style="text-align:center; font-size:0.7em; color:#999; padding:20px;">No history found.</div>`;
+    }
+
+    function resetCost(type) {
+        coolConfirm(`Reset ${type} cost?`, () => { costTracking[type] = 0; save(); renderInventory(); });
+    }
+
+    function generateExport() {
+        const data = { m: menuItems, r: recipes, s: settings, p: salesPrices, i: inventory, a: archive, l: stockLog, ct: costTracking };
+        document.getElementById('exportBox').value = encodeURIComponent(JSON.stringify(data));
+        document.getElementById('export-container').style.display = 'block';
+    }
+
+    function copyExportString() {
+        const box = document.getElementById('exportBox');
+        box.select(); navigator.clipboard.writeText(box.value).then(() => showToast("Copied!"));
+    }
+
+    function importData() {
+        const str = document.getElementById('importBox').value.trim();
+        try {
+            const d = JSON.parse(decodeURIComponent(str));
+            if(d.m) menuItems = new Proxy(d.m, handler);
+            recipes = d.r || []; settings = d.s || settings; salesPrices = d.p || {};
+            inventory = d.i || {}; archive = d.a || archive; stockLog = d.l || []; costTracking = d.ct || costTracking;
+            save(); showToast("Imported!"); setTimeout(() => location.reload(), 1000);
+        } catch(e) { showToast("Invalid Data"); }
+    }
+
+    function calculateTotal(r) { 
+        let t = 0; (r.ings || []).forEach(ing => { 
+            const m = menuItems.find(x => x.id == ing.id); 
+            if(m && m.gram > 0) t += (m.price/m.gram) * ing.qty; 
+        }); 
+        const p = r.type === 'Ice' ? (settings.packIce || 0) : r.type === 'Hot' ? (settings.packHot || 0) : (settings.packSpecial || 0); 
+        return t + parseFloat(p); 
+    }
+
+    function renderExp() {
+        let t = 0; dailyExpenses.forEach(e => t += e.val);
+        document.getElementById('exp-total-disp').innerText = fnum(t);
+        document.getElementById('exp-list').innerHTML = dailyExpenses.map((e,i) => `<div class="history-item"><b>${e.name}</b><span>${fnum(e.val)} ks <button class="btn-del-small" onclick="dailyExpenses.splice(${i},1);save();renderExp();">X</button></span></div>`).reverse().join('');
+    }
+
+    function addExp() {
+        let n=document.getElementById('expName'), v=document.getElementById('expVal');
+        if(!n.value || !v.value) return;
+        dailyExpenses.push({name:n.value, val:parseFloat(v.value)});
+        n.value = ''; v.value = ''; save(); renderExp();
+    }
+
+    function setDrinkType(t) {
+        currentType = t;
+        document.querySelectorAll('.t-btn').forEach(v => v.classList.toggle('active', (v.innerText === 'Spec' ? 'Special' : v.innerText) === t));
+    }
+
+    function addIngredientRow(id = null, qty = '') {
+        const div = document.createElement('div'); div.className = 'ing-row';
+        div.innerHTML = `<select><option value="">Item</option>${menuItems.map(m => `<option value="${m.id}" ${id == m.id ? 'selected' : ''}>${m.name}</option>`).join('')}</select><input type="number" class="i-qty" value="${qty}" placeholder="g" inputmode="numeric"><button class="btn-tab" style="color:red; background:none;" onclick="this.parentElement.remove()">✕</button>`;
+        document.getElementById('ingredient-area').appendChild(div);
+    }
+
+    function editRecipe(i) {
+        editRecipeIndex = i; const r = recipes[i];
+        document.getElementById('recipeName').value = r.name;
+        setDrinkType(r.type);
+        document.getElementById('ingredient-area').innerHTML = '';
+        r.ings.forEach(ing => addIngredientRow(ing.id, ing.qty));
+        document.getElementById('btn-recipe-save').innerText = "Update Recipe";
+        document.getElementById('btn-recipe-cancel').style.display = "block";
+    }
+
+    function resetEditor() {
+        editRecipeIndex = -1; document.getElementById('recipeName').value = ''; document.getElementById('ingredient-area').innerHTML = ''; currentType = null;
+        document.querySelectorAll('.t-btn').forEach(v => v.classList.remove('active'));
+        document.getElementById('btn-recipe-save').innerText = "Save Recipe";
+        document.getElementById('btn-recipe-cancel').style.display = "none";
+    }
+
+    function saveRecipe() {
+        const n = document.getElementById('recipeName').value;
+        let ings = []; document.querySelectorAll('#ingredient-area > div').forEach(row => {
+            const id = row.querySelector('select').value, q = parseFloat(row.querySelector('.i-qty').value);
+            if(id && q) ings.push({id, qty: q});
+        });
+        if(!n || !currentType || ings.length === 0) return;
+        if(editRecipeIndex > -1) recipes[editRecipeIndex] = {name: n, type: currentType, ings};
+        else recipes.push({name: n, type: currentType, ings});
+        save(); resetEditor(); renderRecipeList();
+    }
+
+    function renderRecipeList() {
+        let f = activeFilter === "All" ? recipes : recipes.filter(r => r.type === activeFilter);
+        document.getElementById('recipe-list').innerHTML = f.map((r, i) => `<div class="menu-item"><b>${r.name} <small>(${r.type})</small></b><div style="display:flex; gap:10px;"><button style="color:var(--accent-gold); border:none; background:none; font-weight:700;" onclick="editRecipe(${recipes.indexOf(r)})">Edit</button><button style="color:var(--danger-red); border:none; background:none; font-weight:700;" onclick="coolConfirm('Delete?', ()=>{recipes.splice(${recipes.indexOf(r)},1);save();renderRecipeList();})">X</button></div></div>`).join('');
+    }
+
+    function renderStats(mode) {
+        document.querySelectorAll('[id^="stats-"]').forEach(el => el.classList.remove('active'));
+        if(document.getElementById('stats-'+mode+'-btn')) document.getElementById('stats-'+mode+'-btn').classList.add('active');
+        let now = new Date(), d = now.getDate(), m = now.getMonth(), y = now.getFullYear();
+        let s = [...archive.s], e = [...archive.e];
+        
+        let rev=0, cost=0, exp=0, usage = {};
+        s.concat(dailySales.map(x=>({...x, date:new Date().toISOString()}))).filter(x => {
+            let dt = new Date(x.date);
+            if(mode==='day') return dt.getDate()===d && dt.getMonth()===m && dt.getFullYear()===y;
+            if(mode==='mo') return dt.getMonth()===m && dt.getFullYear()===y;
+            return dt.getFullYear()===y;
+        }).forEach(x => { rev += x.rev; cost += x.cost; });
+        
+        document.getElementById('stats-summary').innerHTML = `<div class="stat-grid"><div class="stat-box"><small>Revenue</small><b>${fnum(rev)}</b></div><div class="stat-box"><small>Profit</small><b>${fnum(rev-cost)}</b></div></div>`;
+    }
+
+    function archiveDailyData() {
+        let d = new Date().toISOString();
+        dailySales.forEach(x => archive.s.push({...x, date: d}));
+        dailyExpenses.forEach(x => archive.e.push({...x, date: d}));
+        dailySales = []; dailyExpenses = []; save(); showView('sell');
+    }
+
+    function resetAllStats() {
+        coolConfirm('Clear all archives?', () => { archive.s = []; archive.e = []; save(); renderStats('day'); });
+    }
+
+    function renderAdmin() {
+        const q = (document.getElementById('homeSearch')?.value || "").toLowerCase();
+        document.getElementById('admin-list').innerHTML = menuItems.filter(m => m.name.toLowerCase().includes(q)).map((m, i) => `
+            <div class="menu-item"><div><b>${m.name}</b><br><small>${m.gram}g / ${fnum(m.price)} ks</small></div>
+            <div style="display:flex; gap:15px;"><button style="color:var(--accent-gold); font-weight:800; border:none; background:none;" onclick="editAdminItem(${i})">Edit</button><button style="color:var(--danger-red); font-weight:800; border:none; background:none;" onclick="coolConfirm('Remove?', ()=>{menuItems.splice(${i},1);save();renderAdmin();})">X</button></div></div>`).join('');
+    }
+
+    function editAdminItem(i) {
+        editAdminIndex = i; const m = menuItems[i];
+        document.getElementById('admName').value = m.name;
+        document.getElementById('admGram').value = m.gram;
+        document.getElementById('admPrice').value = m.price;
+        document.getElementById('btn-adm-save').innerText = "Update";
+        document.getElementById('btn-adm-cancel').style.display = "block";
+        showView('admin');
+    }
+
+    function resetAdminEditor() {
+        editAdminIndex = -1; document.getElementById('admName').value = ''; document.getElementById('admGram').value = ''; document.getElementById('admPrice').value = '';
+        document.getElementById('btn-adm-save').innerText = "Add to Stock";
+        document.getElementById('btn-adm-cancel').style.display = "none";
+    }
+
+    function addAdminItem() {
+        const n = document.getElementById('admName'), g = document.getElementById('admGram'), p = document.getElementById('admPrice');
+        if(!n.value || !g.value || !p.value) return;
+        if(editAdminIndex > -1) menuItems[editAdminIndex] = { ...menuItems[editAdminIndex], name: n.value, gram: parseFloat(g.value), price: parseFloat(p.value) };
+        else menuItems.push({id: Date.now(), name: n.value, gram: parseFloat(g.value), price: parseFloat(p.value)});
+        resetAdminEditor(); renderAdmin();
+    }
+
+    function renderCapital() {
+        let f = activeFilter === "All" ? recipes : recipes.filter(r => r.type === activeFilter);
+        document.getElementById('capital-list').innerHTML = f.map(r => `<div class="menu-item"><b>${r.name}</b><span>${fnum(calculateTotal(r))} ks</span></div>`).join('');
+    }
+
+    function renderProfit() {
+        const p = parseFloat(settings.profit) || 0;
+        let f = activeFilter === "All" ? recipes : recipes.filter(r => r.type === activeFilter);
+        document.getElementById('profit-list').innerHTML = f.map(r => `<div class="menu-item"><b>${r.name}</b><span>${fnum(calculateTotal(r)*(1+p/100))} ks</span></div>`).join('');
+    }
+
+    function renderGross() {
+        let f = activeFilter === "All" ? recipes : recipes.filter(r => r.type === activeFilter);
+        document.getElementById('gprofit-list').innerHTML = f.map((r) => {
+            const idx = recipes.indexOf(r);
+            const cost = calculateTotal(r), sp = parseFloat(salesPrices[idx]) || 0, profit = sp - cost;
+            return `<div class="menu-item"><div><b>${r.name}</b><br><input type="number" style="width:100px; padding:5px; margin-top:5px;" value="${sp}" oninput="salesPrices[${idx}]=this.value;save();"></div><div class="profit-badge ${profit < 0 ? 'status-loss' : 'status-profit'}">${fnum(profit)} ks</div></div>`;
+        }).join('');
+    }
+
+    function renderSell() {
+        const q = (document.getElementById('sellSearch')?.value || "").toLowerCase();
+        document.getElementById('sell-grid-container').innerHTML = recipes.filter(r => r.name.toLowerCase().includes(q)).map((r, i) => `<div class="sell-card" onclick="openQty(${recipes.indexOf(r)})"><b>${r.name}</b></div>`).join('');
+        let tr = 0, tc = 0, te = 0; dailySales.forEach(s => { tr += s.rev; tc += s.cost; });
+        dailyExpenses.forEach(e => te += e.val);
+        document.getElementById('sell-rev').innerText = fnum(tr);
+        document.getElementById('sell-prof').innerText = fnum(tr - tc - te);
+        document.getElementById('sell-history').innerHTML = dailySales.map((s, idx) => `<div class="history-item"><b>${s.qty}x</b> ${s.name} <button class="btn-del-small" onclick="dailySales.splice(${idx},1);save();renderSell();">X</button></div>`).reverse().join('');
+    }
+
+    function openQty(i) {
+        const r = recipes[i]; document.getElementById('qty-title').innerText = r.name;
+        document.getElementById('qty-overlay').style.display = 'flex';
+        const input = document.getElementById('sell-qty-val');
+        input.value = ''; setTimeout(() => input.focus(), 100); 
+        document.getElementById('qty-confirm-btn').onclick = () => {
+            const q = parseInt(input.value);
+            if(q > 0) {
+                const cost = calculateTotal(r), sp = parseFloat(salesPrices[i]) || 0;
+                dailySales.push({name: r.name, qty: q, cost: cost*q, rev: sp*q});
+                save(); renderSell(); closeQty();
+            }
+        };
+    }
+
+    function closeQty() { document.getElementById('qty-overlay').style.display = 'none'; }
+    function setFilter(c) { activeFilter = c; showView(document.querySelector('.view.active').id.replace('view-','')); }
+    function showToast(m) { const t = document.createElement('div'); t.className='toast show'; t.innerText=m; document.getElementById('toast-container').appendChild(t); setTimeout(()=>{t.remove();},2000); }
+    function coolConfirm(m, ok) { document.getElementById('confirm-msg').innerText = m; document.getElementById('confirm-overlay').style.display='flex'; document.getElementById('confirm-ok').onclick = () => { ok(); closeConfirm(); }; }
+    function closeConfirm() { document.getElementById('confirm-overlay').style.display='none'; }
+</script>
+</body>
+</html>
